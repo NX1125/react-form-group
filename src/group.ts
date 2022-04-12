@@ -3,24 +3,20 @@ import isNil from 'lodash/isNil'
 import { List } from 'immutable'
 
 import { FormControl } from './control'
-import { IAbstractFormControl, IFormControlProps, IFormControlValue } from './base'
-import { FormGroupArray, IFormArrayProps } from './array'
+import { IAbstractFormControl, IFormControlProps, IFormControlValue, SupportedInputElement } from './base'
 
 type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
     ? RecursivePartial<U>[]
     : T[P] extends object
       ? RecursivePartial<T[P]>
-      : T[P];
+      : T[P]
 }
 
 type RecursiveFormControls<V, O = never> = {
-  [P in keyof V]: V[P] extends (infer U)[] | List<infer U2>
-    ? FormGroupArray<U | U2>
-    : V[P] extends IFormControlValue
-      ? FormControl<V[P]>
-      : FormGroup<V[P]>
-
+  [P in keyof V]: V[P] extends IFormControlValue
+    ? FormControl<V[P]>
+    : FormGroup<V[P]>
 }
 // type RecursiveFormControls<V extends {
 //   [k in keyof V]: IFormControlValue | object
@@ -41,9 +37,7 @@ export type IFormGroupValue<V extends {
     ? V[P]
     : V[P] extends FormControl<infer U>
       ? U
-      : V[P] extends (infer U)[]
-        ? List<U>
-        : V[P]
+      : V[P]
 }
 
 export type IFormGroupProps<V> = {
@@ -51,9 +45,7 @@ export type IFormGroupProps<V> = {
     ? IFormControlProps<V[P]>
     : V[P] extends FormControl<infer U>
       ? IFormControlProps<U>
-      : V[P] extends (infer U)[]
-        ? IFormArrayProps<U>
-        : IFormGroupProps<V[P]>
+      : IFormGroupProps<V[P]>
 }
 
 export type IsFormGroupValidFunc<V, E extends object> = (fs: FormGroup<V, E>) => boolean
@@ -98,7 +90,7 @@ export class FormGroup<V extends {
     }
   }
 
-  private getControl(name: keyof V | keyof RecursiveFormControls<V>): FormControl | FormGroup<any> | FormGroupArray<any> {
+  private getControl(name: keyof V | keyof RecursiveFormControls<V>): FormControl | FormGroup<any> {
     return (this.controls as any)[name]
   }
 
@@ -144,13 +136,13 @@ export class FormGroup<V extends {
 
     for (const name of names) {
       const control = this.getControl(name)
-      const onDelegateChange = (c: FormControl | FormGroup<any> | FormGroupArray<any>) => {
+      const onDelegateChange = (c: FormControl | FormGroup<any>) => {
         onChange(new FormGroup<V, E>({
           ...this.controls,
           [name]: c,
         }, this.config, true))
       }
-      if (control instanceof FormGroup || control instanceof FormGroupArray) {
+      if (control instanceof FormGroup) {
         controls[name] = control.getInputProps(onDelegateChange, `${__namePrefix}${name}.`)
       } else {
         controls[name] = control.getInputProps(onDelegateChange, __namePrefix + name)
@@ -165,7 +157,7 @@ export class FormGroup<V extends {
     return !this.needsValidation && !this.isValid
   }
 
-  private isAnyControl(test: (control: FormControl | FormGroup<any> | FormGroupArray<any>) => any) {
+  private isAnyControl(test: (control: FormControl | FormGroup<any>) => any) {
     const names = this.controlNames
     for (const name of names) {
       if (test(this.getControl(name))) {
@@ -176,7 +168,7 @@ export class FormGroup<V extends {
     return false
   }
 
-  private areAllControls(test: (control: FormControl | FormGroup<any> | FormGroupArray<any>) => any) {
+  private areAllControls(test: (control: FormControl | FormGroup<any>) => any) {
     return !this.isAnyControl(control => !test(control))
   }
 

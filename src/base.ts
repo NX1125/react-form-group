@@ -1,8 +1,6 @@
 import type React from 'react'
 import { FormControl } from './control'
-import { List } from 'immutable'
 import { FormGroup } from './group'
-import { FormGroupArray } from './array'
 
 export type SupportedInputElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 
@@ -19,11 +17,9 @@ export type INotNilFormControlValue = FileList | Date | string | number | boolea
 export type IFormControlValue = INotNilFormControlValue | null | undefined
 
 export type IValueToFormControl<V> =
-  V extends (infer U)[] | List<infer U>
-    ? FormGroupArray<U>
-    : V extends IFormControlValue
-      ? FormControl<V>
-      : FormGroup<V>
+  V extends IFormControlValue
+    ? FormControl<V>
+    : FormGroup<V>
 
 interface IFormControlPropsBase<V extends IFormControlValue = any> extends INativeValidationAttributes {
   value: V
