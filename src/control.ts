@@ -50,15 +50,39 @@ export function localDateAsValue(date: Date) {
 
 // TODO: Add opaque object form control
 
-export class FormControl<V extends IFormControlValue = any, E extends IDefaultErrors = IExtendedDefaultErrors> implements IAbstractFormControl {
+export interface IFormControlConfig<V extends IFormControlValue, E extends IDefaultErrors> {
+  readonly validators?: IFormControlValidator<E>[]
+  readonly needsValidation?: boolean
+  readonly errors?: Partial<E>
+  readonly dirty?: boolean
+  readonly touched?: boolean
+}
+
+export class FormControl<V extends IFormControlValue = any, E extends IDefaultErrors = IExtendedDefaultErrors>
+  implements IAbstractFormControl, IFormControlConfig<V, E> {
+  readonly validators: IFormControlValidator<E>[] | undefined
+  readonly needsValidation: boolean
+  readonly errors: Partial<E> | undefined
+  readonly dirty: boolean
+  readonly touched: boolean
+
   constructor(
     public readonly value: V,
-    public readonly validators?: IFormControlValidator<E>[],
-    public readonly needsValidation = true,
-    public readonly errors?: Partial<E> | undefined,
-    public readonly dirty?: boolean,
-    public readonly touched?: boolean,
+    config?: IFormControlValidator<E>[] | IFormControlConfig<V, E>,
   ) {
+    if (Array.isArray(config) || isNil(config)) {
+      this.validators = config
+      this.needsValidation = true
+      this.dirty = false
+      this.touched = false
+      this.errors = undefined
+    } else {
+      this.validators = config!.validators
+      this.needsValidation = config!.needsValidation ?? false
+      this.dirty = config!.dirty ?? false
+      this.touched = config!.touched ?? false
+      this.errors = config!.errors
+    }
   }
 
   validate(): FormControl<V, E> {
@@ -68,6 +92,8 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     const {
       validators,
       value,
+      dirty,
+      touched,
     } = this
 
     if (validators) {
@@ -76,21 +102,22 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
       if (this.hasErrorsIn(errors))
         return new FormControl<V, E>(
           value,
-          validators,
-          false,
-          errors,
-          this.dirty,
-          this.touched,
+          {
+            validators,
+            errors,
+            dirty,
+            touched,
+          },
         )
     }
 
     return new FormControl<V, E>(
       value,
-      validators,
-      false,
-      undefined,
-      this.dirty,
-      this.touched,
+      {
+        validators,
+        dirty,
+        touched,
+      },
     )
   }
 
@@ -178,11 +205,12 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     const onChangeValue = (value: any) => {
       onChange(new FormControl<V, E>(
         value,
-        this.validators,
-        true,
-        undefined,
-        true,
-        true,
+        {
+          validators: this.validators,
+          needsValidation: true,
+          dirty: true,
+          touched: true,
+        },
       ))
     }
 
@@ -223,11 +251,10 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
       onBlur: () => {
         onChange(new FormControl<V, E>(
           this.value,
-          this.validators,
-          this.needsValidation,
-          this.errors,
-          this.dirty,
-          true,
+          {
+            ...this,
+            touched: true,
+          },
         ))
       },
       onFocus: event => {
@@ -250,22 +277,21 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
   patchValue(value: any): FormControl<V> {
     return new FormControl<V, E>(
       value,
-      this.validators,
-      true,
-      undefined,
-      this.dirty,
-      this.touched,
+      {
+        ...this,
+        needsValidation: true,
+        errors: undefined,
+      },
     )
   }
 
   setDirty(dirty = true) {
     return new FormControl(
       this.value,
-      this.validators,
-      this.needsValidation,
-      this.errors,
-      dirty,
-      this.touched,
+      {
+        ...this,
+        dirty,
+      },
     )
   }
 
@@ -296,11 +322,12 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
   setValidators(validators?: IFormControlValidator[]) {
     return new FormControl(
       this.value,
-      validators,
-      true,
-      undefined,
-      this.dirty,
-      this.touched,
+      {
+        ...this,
+        validators,
+        needsValidation: true,
+        errors: undefined,
+      },
     )
   }
 
