@@ -9,6 +9,7 @@ import {
   IFormControlValidator,
 } from './validation'
 import {
+  FormChangeReason,
   IAbstractFormControl,
   IFormControlProps,
   IFormControlValue,
@@ -51,6 +52,7 @@ export function localDateAsValue(date: Date) {
 // TODO: Add opaque object form control
 
 export interface IFormControlConfig<V extends IFormControlValue, E extends IDefaultErrors> {
+  // TODO: Add data key
   readonly validators?: IFormControlValidator<E>[]
   readonly needsValidation?: boolean
   readonly errors?: Partial<E>
@@ -171,13 +173,27 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     ) ?? false
   }
 
+  private getAttributedValidator(predicate: (v: FormControlAttributedValidator<E>) => boolean) {
+    const v = this.validators?.find(v => v instanceof FormControlAttributedValidator && predicate(v))
+    return v as (FormControlAttributedValidator<E> | undefined)
+  }
+
   get numberRange(): {
     min?: number
     max?: number
   } | undefined {
-    const validator = this.validators?.find(v => v instanceof FormControlAttributedValidator && (
-      !isNil(v.attributes.max) || !isNil(v.attributes.min)
-    )) as (FormControlAttributedValidator<any> | undefined)
+    const validator = this.getAttributedValidator(v => !isNil(v.attributes.max) || !isNil(v.attributes.min))
+
+    return validator?.attributes
+  }
+
+  get lengthRange(): {
+    minLength?: number
+    maxLength?: number
+  } | undefined {
+    const validator = this.getAttributedValidator(
+      ({ attributes }) => !isNil(attributes.maxLength) || !isNil(attributes.minLength),
+    )
 
     return validator?.attributes
   }
@@ -197,12 +213,23 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
   }
 
   getInputProps(
-    onChange: (control: FormControl<V, E>) => void,
+    onChange: (control: FormControl<V, E>, reason?: FormChangeReason) => void,
+    uncontrolled?: boolean,
     name?: string,
+  ) {
+    return new FormControlProps<V, E>(
+      this._getInputProps(onChange, uncontrolled, name),
+      this,
+    )
+  }
+
+  private _getInputProps(
+    onChange: (control: FormControl<V, E>, reason?: FormChangeReason) => void,
+    uncontrolled?: boolean,
+    name?: string,
+    ref?: React.RefCallback<SupportedInputElement>,
   ): IFormControlProps<V> {
-
-
-    const onChangeValue = (value: any) => {
+    const onChangeValue = (value: any, reason: FormChangeReason) => {
       onChange(new FormControl<V, E>(
         value,
         {
@@ -211,15 +238,12 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
           dirty: true,
           touched: true,
         },
-      ))
+      ), reason)
     }
 
-    return {
-      ...this.inputAttrs,
-      // Fix: An invalid form control with name='...' is not focusable.
-      required: undefined,
-      name,
-      value: this.value instanceof Date
+    const solvedValue = uncontrolled
+      ? undefined
+      : this.value instanceof Date
         ? localDateAsValue(this.value)
         : isNil(this.value) ||
         typeof this.value === 'number' && isNaN(this.value) ||
@@ -230,32 +254,67 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
           //  Received NaN for the `value` attribute. If this is expected,
           //  cast the value to a string.
           ? ''
-          : this.value,
-      checked: this.value === true, // checkboxes
-      onChange: (event: React.ChangeEvent<SupportedInputElement> | V) => {
+          : this.value
+
+    const props: IFormControlProps = {
+      ...this.inputAttrs,
+      // Fix: An invalid form control with name='...' is not focusable.
+      required: undefined,
+      name,
+      value: solvedValue,
+      defaultValue: uncontrolled ? solvedValue : undefined,
+      checked: uncontrolled ? undefined : this.value === true, // checkboxes
+      onChange: (event: React.ChangeEvent<SupportedInputElement> | V | FormControl<V, E>) => {
+        if (event instanceof FormControl) {
+          onChange(event, FormChangeReason.change)
+          return
+        }
+
         if (Array.isArray(event) || event instanceof Date) {
-          onChangeValue(event)
+          onChangeValue(event, FormChangeReason.change)
           return
         }
         switch (typeof event) {
           case 'boolean':
           case 'number':
           case 'string':
-            onChangeValue(event)
+            onChangeValue(event, FormChangeReason.change)
             return
         }
 
+        if (uncontrolled)
+          return
+
         const newValue = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.value)
-        onChangeValue(newValue)
+        onChangeValue(newValue, FormChangeReason.change)
       },
-      onBlur: () => {
+      onBlur: event => {
+        const target = event.target
+        if (
+          target instanceof HTMLInputElement &&
+          ((target.type === 'radio' || target.type === 'checkbox') &&
+            !target.checked)
+        ) {
+          return
+        }
+
+        if (!(
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement
+        ))
+          return
+
+        const newValue = getChangeValue(target, this.value)
+
         onChange(new FormControl<V, E>(
           this.value,
           {
             ...this,
+            dirty: newValue !== this.value || this.dirty,
             touched: true,
           },
-        ))
+        ), FormChangeReason.blur)
       },
       onFocus: event => {
         const target = event.target ?? event.currentTarget
@@ -269,9 +328,20 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
         // autofill
         const newValue = getChangeValue(target, this.value)
         if (newValue !== this.value)
-          onChangeValue(newValue)
+          onChangeValue(newValue, FormChangeReason.blur)
       },
+      // ref,
     }
+
+    if (uncontrolled) {
+      delete props.value
+      if (props.defaultValue === undefined)
+        delete props.defaultValue
+      if (props.checked === undefined)
+        delete props.checked
+    }
+
+    return props
   }
 
   patchValue(value: any): FormControl<V> {
@@ -281,6 +351,16 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
         ...this,
         needsValidation: true,
         errors: undefined,
+      },
+    )
+  }
+
+  setTouched(touched = true) {
+    return new FormControl(
+      this.value,
+      {
+        ...this,
+        touched,
       },
     )
   }
@@ -295,22 +375,46 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     )
   }
 
-  patchWithElement(source: SupportedInputElement) {
-    if (source instanceof HTMLSelectElement) {
-      return this.patchValue(source.value)
-    } else if (source instanceof HTMLTextAreaElement) {
-      return this.patchValue(source.value)
-    } else {
-      const value = getChangeValue(source, source.value)
-      return this.patchValue(value)
+  patchFromElement(
+    elements: NodeListOf<SupportedInputElement> | SupportedInputElement[],
+    __name = '',
+  ) {
+    switch (elements.length) {
+      case 0:
+        return this
+      case 1:
+        const element = elements[0]
+
+        return this.patchValue(getChangeValue(element, undefined))
+      default:
+        // Only radio is allowed
+        for (let i = 0; i < elements.length; i++) {
+          const radio = elements[i]
+          if (!(radio instanceof HTMLInputElement) || radio.type !== 'radio')
+            throw new Error(`invalid element: ${radio.name}`)
+
+          if (radio.checked) {
+            return this.patchValue(getChangeValue(radio, radio.value))
+          }
+        }
+
+        return this.patchValue('')
     }
+  }
+
+  querySelectorAll(
+    root: HTMLElement,
+    name: string,
+  ): NodeListOf<SupportedInputElement> {
+    const selector = ['input', 'select', 'textarea'].map(elem => `${elem}[name="${name}"]`).join(', ')
+    return root.querySelectorAll<SupportedInputElement>(selector)
   }
 
   /**
    * Tries to update this control value with the first checked radio in the
    * array. If none is selected, then {@code undefined} is returned.
    */
-  patchWithRadioElements(sources: HTMLInputElement[]) {
+  patchFromRadio(sources: HTMLInputElement[]) {
     for (const source of sources) {
       if (source.checked)
         return this.patchValue(source.value)
@@ -330,29 +434,33 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
       },
     )
   }
-
-  /**
-   * @deprecated
-   */
-  static toRadio<V extends IFormControlValue>(
-    props: IFormControlProps<V>,
-    value: V,
-  ): IRadioFormControlProps<V> {
-    return FormControlPropsUtil.toRadio(props, value)
-  }
-
 }
 
-export class FormControlPropsUtil {
-  static withTransform<V extends IFormControlValue>(
-    props: IFormControlProps<V>,
+export class FormControlProps<V extends IFormControlValue = any, E extends IDefaultErrors = IExtendedDefaultErrors> {
+  constructor(
+    public readonly props: IFormControlProps<V>,
+    public readonly control: FormControl<V, E>,
+  ) {
+  }
+
+  withTransform<V extends IFormControlValue>(
+    parseValue: (v: V) => V,
+    transformValue: (v: V) => IFormControlValue,
+  ) {
+    return new FormControlProps(
+      this._withTransform(parseValue, transformValue),
+      this.control,
+    )
+  }
+
+  private _withTransform<V extends IFormControlValue>(
     parseValue: (v: V) => V,
     transformValue: (v: V) => IFormControlValue,
   ): IFormControlProps<V> {
     return {
-      ...props,
-      value: transformValue(props.value),
-      onChange(event: React.ChangeEvent<SupportedInputElement> | V) {
+      ...this.props,
+      value: transformValue(this.props.value),
+      onChange: (event: React.ChangeEvent<SupportedInputElement> | V) => {
         let value: any
         if (Array.isArray(event) || event instanceof Date) {
           value = event
@@ -364,27 +472,39 @@ export class FormControlPropsUtil {
               value = event
               break
             default:
-              value = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, props.value)
+              value = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.props.value)
               break
           }
         }
 
-        props.onChange(parseValue(value))
+        this.props.onChange(parseValue(value))
       },
     }
   }
 
-  static toRadio<V extends IFormControlValue>(
-    props: IFormControlProps<V>,
-    value: V,
-  ): IRadioFormControlProps<V> {
+  getNativeValidationAttributes(requiredEnabled = true): INativeValidationAttributes {
     return {
-      ...props,
+      required: requiredEnabled && this.props.required,
+      min: this.props.min,
+      max: this.props.max,
+      minLength: this.props.minLength,
+      maxLength: this.props.maxLength,
+      pattern: this.props.pattern,
+    }
+  }
+
+  toRadio<V extends IFormControlValue>(value: V) {
+    return new FormControlProps(this._toRadio(value), this.control)
+  }
+
+  private _toRadio<V extends IFormControlValue>(value: V): IRadioFormControlProps<V> {
+    return {
+      ...this.props,
       value,
-      checked: props.value === value,
+      checked: this.props.value === value,
       type: "radio",
-      onChange() {
-        props.onChange(value)
+      onChange: () => {
+        this.props.onChange(value)
       },
     }
   }

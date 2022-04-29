@@ -12,7 +12,7 @@ export function isWhitespace(value: string): boolean {
 }
 
 export function isValidEmail(value?: string | null) {
-  return /^[a-zA-Z.\-_0-9]+@[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$/.test(value ?? '')
+  return /^[a-zA-Z.\-_\d]+@[a-zA-Z\d]+(\.[a-zA-Z\d]+)+$/.test(value ?? '')
 }
 
 export function isValidPhoneNumber(value?: string | null) {
@@ -113,23 +113,34 @@ export class DefaultValidators {
     })
   }
 
-  static pattern(pattern: string | RegExp) {
+  static pattern(
+    pattern: string | RegExp, ignoreIfNilOrWhitespace = true,
+  ) {
     return new FormControlAttributedValidator<IDefaultErrors>({
       pattern: typeof pattern === 'string' ? pattern : pattern.source,
-    }, value => {
-      if (isNil(value))
+    }, this.patternFunc(pattern, {
+      pattern: true,
+    }, ignoreIfNilOrWhitespace))
+  }
+
+  static patternFunc<E>(
+    pattern: string | RegExp,
+    errors: Partial<E>,
+    ignoreIfNilOrWhitespace = true,
+  ): IFormControlDefaultValidatorFunc<E> {
+    return value => {
+      const valueAsString = String(value)
+
+      if (ignoreIfNilOrWhitespace && isNilOrWhitespace(valueAsString))
         return undefined
 
-      const valueAsString = String(value)
       const regex = new RegExp(pattern)
 
       if (regex.test(valueAsString))
         return undefined
 
-      return {
-        pattern: true,
-      }
-    })
+      return errors
+    }
   }
 
   private static createStringToBoolValidator(

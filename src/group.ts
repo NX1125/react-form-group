@@ -1,9 +1,13 @@
 import isNil from 'lodash/isNil'
 
-import { List } from 'immutable'
-
-import { FormControl } from './control'
-import { IAbstractFormControl, IFormControlProps, IFormControlValue, SupportedInputElement } from './base'
+import { FormControl, FormControlProps } from './control'
+import {
+  FormChangeReason,
+  IAbstractFormControl,
+  IFormControlValue,
+  SupportedInputElement,
+} from './base'
+import { useRef, useState } from 'react'
 
 type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
@@ -14,21 +18,26 @@ type RecursivePartial<T> = {
 }
 
 type RecursiveFormControls<V, O = never> = {
-  [P in keyof V]: V[P] extends IFormControlValue
+  [P in keyof V]-?: V[P] extends IFormControlValue
     ? FormControl<V[P]>
     : FormGroup<V[P]>
 }
-// type RecursiveFormControls<V extends {
-//   [k in keyof V]: IFormControlValue | object
-// }, O = never> = {
-//   [P in keyof V]: V[P] extends IFormControlValue
-//     ? FormControl<V[P]>
-//     : V[P] extends FormControl<infer U>
-//       ? FormControl<U>
-//       : V[P] extends (infer U)[]
-//         ? FormArray<U>
-//         : FormGroup<V[P]>
-// }
+
+export type IFormGroupRef<V> = {
+  [P in keyof V]: V[P] extends IFormControlValue
+    ? SupportedInputElement | undefined
+    : V[P] extends FormControl<infer U>
+      ? SupportedInputElement | undefined
+      : IFormGroupRef<V[P]>
+}
+
+export type IFormGroupElements<V> = {
+  [P in keyof V]?: V[P] extends IFormControlValue
+    ? NodeListOf<SupportedInputElement> | SupportedInputElement[] | SupportedInputElement
+    : V[P] extends FormControl<infer U>
+      ? NodeListOf<SupportedInputElement> | SupportedInputElement[] | SupportedInputElement
+      : IFormGroupRef<V[P]>
+}
 
 export type IFormGroupValue<V extends {
   [k in keyof V]: IFormControlValue | object
@@ -40,18 +49,24 @@ export type IFormGroupValue<V extends {
       : V[P]
 }
 
-export type IFormGroupProps<V> = {
-  [P in keyof V]: V[P] extends IFormControlValue
-    ? IFormControlProps<V[P]>
+export type IFormGroupProps<V, E extends object = any> = {
+  [P in keyof V]-?: V[P] extends IFormControlValue
+    ? FormControlProps<V[P]>
     : V[P] extends FormControl<infer U>
-      ? IFormControlProps<U>
+      ? FormControlProps<U>
       : IFormGroupProps<V[P]>
+} & {
+  setFormGroup(group: FormGroup<V, E>, reason?: FormChangeReason): void
+
+  __formGroup: FormGroup<V, E>
+  __groupName: string
 }
 
 export type IsFormGroupValidFunc<V, E extends object> = (fs: FormGroup<V, E>) => boolean
 
 export interface IFormGroupConfig<V, E extends object> {
-  validators?: ReadonlyArray<IFormGroupValidator<V, E>>
+  validate?: IFormGroupValidator<V, E>
+  validateAsync?: IFormGroupValidatorAsync<V, E>
   isValid?: IsFormGroupValidFunc<V, E>
 }
 
@@ -59,33 +74,36 @@ export interface IFormGroupValidator<V, E extends object> {
   (state: FormGroup<V, E>): Partial<E> | false | undefined
 }
 
+export interface IFormGroupValidatorAsync<V, E extends object> {
+  (state: FormGroup<V, E>): Promise<Partial<E> | false | undefined>
+}
+
 export class FormGroup<V extends {
   readonly [k in keyof V]: V[k]
 }, E extends object = any> implements IAbstractFormControl {
   private readonly _needsValidation: boolean
-  public readonly validators: ReadonlyArray<IFormGroupValidator<V, E>>
+  public readonly validator?: IFormGroupValidator<V, E>
+  public readonly validatorAsync?: IFormGroupValidatorAsync<V, E>
   private readonly _isValidFunc?: IsFormGroupValidFunc<V, E>
 
   constructor(
     public readonly controls: RecursiveFormControls<V>,
-    validatorsOrConfig?: ReadonlyArray<IFormGroupValidator<V, E>> | IFormGroupConfig<V, E>,
+    validatorsOrConfig?: IFormGroupConfig<V, E>,
     needsValidation?: boolean,
-    public readonly errors?: E,
+    public readonly errors?: Partial<E>,
   ) {
-    if (Array.isArray(validatorsOrConfig)) {
-      this.validators = validatorsOrConfig
-    } else {
-      const config = validatorsOrConfig as (IFormGroupConfig<V, E> | undefined)
-      this.validators = config?.validators ?? []
-      this._isValidFunc = config?.isValid
-    }
+    const config = validatorsOrConfig as (IFormGroupConfig<V, E> | undefined)
+    this.validator = config?.validate
+    this.validatorAsync = config?.validateAsync
+    this._isValidFunc = config?.isValid
 
-    this._needsValidation = needsValidation ?? (this.validators.length > 0) ?? false
+    this._needsValidation = needsValidation ?? (!isNil(this.validator) || !isNil(this.validatorAsync)) ?? false
   }
 
   private get config(): IFormGroupConfig<V, E> {
     return {
-      validators: this.validators,
+      validate: this.validator,
+      validateAsync: this.validatorAsync,
       isValid: this._isValidFunc,
     }
   }
@@ -112,45 +130,86 @@ export class FormGroup<V extends {
       return new FormGroup(newState, this.config, false)
     }
 
-    let errors: any = undefined
+    const errors = this.validator?.(this)
 
-    for (const validator of this.validators) {
-      const validation = validator(this)
-      if (validation) {
-        errors = {
-          ...errors,
-          ...validation,
-        }
-      }
-    }
-
-    return new FormGroup<V, E>(newState, this.config, false, errors)
+    return new FormGroup<V, E>(newState, this.config, false, errors || undefined)
   }
 
-  getInputProps(
-    onChange: (group: FormGroup<V, E>) => void,
+  querySelectorAll(
+    root: HTMLElement,
     __namePrefix = '',
-  ): IFormGroupProps<V> {
+  ): IFormGroupElements<V> {
     const names = this.controlNames
     const controls: any = {}
 
     for (const name of names) {
       const control = this.getControl(name)
-      const onDelegateChange = (c: FormControl | FormGroup<any>) => {
+
+      const prefix = control instanceof FormGroup ? `${__namePrefix}${name}.` : __namePrefix + name
+
+      controls[name] = control.querySelectorAll(root, prefix)
+    }
+
+    return controls
+  }
+
+  patchFromElement(
+    tree: IFormGroupElements<V>,
+    __prefix = '',
+  ) {
+    const names = this.controlNames
+    const controls: any = {}
+
+    for (const name of names) {
+      const control = this.getControl(name)
+      const element = (tree as any)[name]
+
+      if (!isNil(element) && !isNil(control))
+        controls[name] = control.patchFromElement(element!, `.${__prefix}.${name}`)
+    }
+
+    return new FormGroup<V, E>({
+      ...this.controls,
+      ...controls,
+    }, this.config, true)
+  }
+
+  getInputProps(
+    onChange: (group: FormGroup<V, E>, reason?: FormChangeReason) => void,
+    uncontrolled?: boolean,
+    __namePrefix = '',
+  ): IFormGroupProps<V, E> {
+    const names = this.controlNames
+    const controls: any = {}
+
+    for (const name of names) {
+      const control = this.getControl(name)
+      const onDelegateChange = (c: FormControl | FormGroup<any>, reason?: FormChangeReason) => {
         onChange(new FormGroup<V, E>({
           ...this.controls,
           [name]: c,
-        }, this.config, true))
+        }, this.config, true), reason)
       }
       if (control instanceof FormGroup) {
-        controls[name] = control.getInputProps(onDelegateChange, `${__namePrefix}${name}.`)
+        controls[name] = control.getInputProps(
+          onDelegateChange, uncontrolled, `${__namePrefix}${name}.`,
+        )
       } else {
-        controls[name] = control.getInputProps(onDelegateChange, __namePrefix + name)
+        controls[name] = control.getInputProps(
+          onDelegateChange,
+          uncontrolled,
+          __namePrefix + name,
+        )
       }
 
     }
 
-    return controls
+    return {
+      ...controls,
+      setFormGroup: onChange,
+      __groupName: __namePrefix,
+      __formGroup: this,
+    }
   }
 
   get isInvalid(): boolean {
@@ -190,7 +249,7 @@ export class FormGroup<V extends {
     return this.isAnyControl(control => control.touched)
   }
 
-  private get controlNames() {
+  get controlNames() {
     return Object.getOwnPropertyNames(this.controls) as (keyof V)[]
   }
 
@@ -227,16 +286,50 @@ export class FormGroup<V extends {
     return value
   }
 
+  setTouched(touched = true) {
+    return this.map(c => c.setTouched(touched))
+  }
+
   setDirty(dirty = true): FormGroup<V> {
+    return this.map(c => c.setDirty(dirty))
+  }
+
+  map(mapper: <V extends IFormControlValue = IFormControlValue>(control: FormControl<V>) => FormControl<V>) {
     const names = this.controlNames
     const controls: any = {}
 
     for (const name of names) {
       const control = this.getControl(name)
 
-      controls[name] = control.setDirty(dirty)
+      controls[name] = mapper(control as any)
     }
 
     return new FormGroup(controls, this.config, this._needsValidation)
   }
+
+  createRefTree(): IFormGroupRef<V> {
+    const names = this.controlNames
+    const children: any = {}
+
+    for (const name of names) {
+      const control = this.getControl(name)
+
+      if (control instanceof FormGroup) {
+        children[name] = control.createRefTree()
+      } else {
+        children[name] = undefined
+      }
+    }
+
+    return children as IFormGroupRef<V>
+  }
+}
+
+/**
+ * @deprecated
+ */
+export function useGroupRefTree<V>(group: FormGroup<V>) {
+  const [tree] = useState(() => group.createRefTree())
+
+  return useRef<IFormGroupRef<V>>(tree)
 }

@@ -23,13 +23,18 @@ export type IValueToFormControl<V> =
 
 interface IFormControlPropsBase<V extends IFormControlValue = any> extends INativeValidationAttributes {
   value: V
+  defaultValue?: V
   name?: string
-  checked: boolean
+  checked?: boolean
 
   onChange(event: React.ChangeEvent<SupportedInputElement> | V): void
 
   onFocus: React.FocusEventHandler<HTMLElement>
   onBlur: React.FocusEventHandler<HTMLElement>
+
+  'data-react-form-group-key'?: string
+
+  // ref?: React.RefCallback<SupportedInputElement>
 }
 
 export interface IFormControlProps<V extends IFormControlValue = any> extends IFormControlPropsBase {
@@ -55,9 +60,16 @@ export interface IAbstractFormControl {
   readonly value: any
 
   getInputProps(
-    onChange: (group: IAbstractFormControl) => void,
+    onChange: (group: IAbstractFormControl, reason?: FormChangeReason) => void,
+    uncontrolled?: boolean,
     __namePrefix?: string,
   ): any
 
   patchValue(v: any): IAbstractFormControl
+}
+
+export enum FormChangeReason {
+  change = 'change',
+  blur = 'blur',
+  focus = 'focus',
 }

@@ -1,12 +1,13 @@
 {
   "name": "react-form-group",
-  "version": "0.0.1-b7",
+  "version": "2022.04.28.22.11.04",
   "description": "Lib for form state management",
   "main": "index.ts",
   "license": "MIT",
   "scripts": {
-    "build": "rm -rf lib && tsc",
-    "dist": "yarn build && cp -r src lib && cp package.json lib && cp -r lib $(./dist.py)",
+    "build": "rm -rf lib && tsc && cp package.json lib",
+    "dist": "yarn build && cp -r src lib && DIST=$(./dist.py) && echo $DIST && cp -r lib $DIST",
+    "build:link": "yarn build && rm -rf react-form-group && cp -r lib react-form-group && cp -r src react-form-group/src",
     "test": "ts-jest tests"
   },
   "dependencies": {
