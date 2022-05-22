@@ -148,7 +148,7 @@ export class DefaultValidators {
     error: IExtendedDefaultErrors,
   ): IFormControlDefaultValidatorFunc<IExtendedDefaultErrors> {
     return value => {
-      if (isNil(value) || typeof value !== 'string')
+      if (typeof value !== 'string' || isWhitespace(value))
         return undefined
 
       const valueAsString = String(value)
