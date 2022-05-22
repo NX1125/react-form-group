@@ -22,6 +22,8 @@ function getChangeValue(target: SupportedInputElement, radioValue: any): IFormCo
   if (target instanceof HTMLInputElement) {
     switch (target.type as HTMLInputTypeAttribute) {
       case 'number':
+        if (target.value === '')
+          return NaN
         return target.valueAsNumber
       case 'radio':
         return radioValue
