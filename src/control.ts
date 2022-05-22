@@ -276,7 +276,7 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
           return
         }
 
-        if (Array.isArray(event) || event instanceof Date) {
+        if (Array.isArray(event) || event instanceof Date || isNil(event)) {
           onChangeValue(event, FormChangeReason.change)
           return
         }
