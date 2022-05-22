@@ -89,6 +89,10 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     }
   }
 
+  transformValue(t: (t: any) => any): V {
+    return t(this.value)
+  }
+
   validate(): FormControl<V, E> {
     if (!this.needsValidation)
       return this
@@ -445,24 +449,29 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
   ) {
   }
 
-  withTransform<V extends IFormControlValue>(
-    parseValue: (v: V) => V,
-    transformValue: (v: V) => IFormControlValue,
+  withTransform<T = any>(
+    parseValue: (v: T) => V,
+    transformValue: (v: V) => T,
   ) {
     return new FormControlProps(
-      this._withTransform(parseValue, transformValue),
+      this._withTransform<T>(parseValue, transformValue),
       this.control,
     )
   }
 
-  private _withTransform<V extends IFormControlValue>(
-    parseValue: (v: V) => V,
-    transformValue: (v: V) => IFormControlValue,
-  ): IFormControlProps<V> {
+  private _withTransform<T = any>(
+    parseValue: (v: T) => V,
+    transformValue: (v: V) => T,
+  ): IFormControlProps {
     return {
       ...this.props,
-      value: transformValue(this.props.value),
+      value: transformValue(this.control.value),
       onChange: (event: React.ChangeEvent<SupportedInputElement> | V) => {
+        if (isNil(event)) {
+          this.props.onChange('')
+          return
+        }
+
         let value: any
         if (Array.isArray(event) || event instanceof Date) {
           value = event
@@ -474,7 +483,8 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
               value = event
               break
             default:
-              value = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.props.value)
+              if (typeof event === 'object' && 'target' in (event as object))
+                value = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.props.value)
               break
           }
         }
