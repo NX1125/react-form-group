@@ -1,13 +1,14 @@
+import { useRef, useState } from 'react'
 import isNil from 'lodash/isNil'
 
 import { FormControl, FormControlProps } from './control'
+import { isWhitespace } from './validation'
 import {
   FormChangeReason,
   IAbstractFormControl,
   IFormControlValue,
   SupportedInputElement,
 } from './base'
-import { useRef, useState } from 'react'
 
 type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
@@ -281,6 +282,26 @@ export class FormGroup<V extends {
 
     for (const name of this.controlNames) {
       value[name] = this.getControl(name).value
+    }
+
+    return value
+  }
+
+  getValueOrDefault(defaultValue?: any): V {
+    return this.transformValue(v => {
+      return isNil(v) ||
+      typeof v === 'string' && isWhitespace(v) ||
+      typeof v === 'number' && isNaN(v)
+        ? defaultValue
+        : v
+    })
+  }
+
+  transformValue(t: (t: any) => any): V {
+    const value: any = {}
+
+    for (const name of this.controlNames) {
+      value[name] = this.getControl(name).transformValue(t)
     }
 
     return value
