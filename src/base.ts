@@ -13,7 +13,7 @@ export interface INativeValidationAttributes {
   pattern?: string
 }
 
-export type INotNilFormControlValue = FileList | Date | string | number | boolean
+export type INotNilFormControlValue = FileList | File | Date | string | number | boolean
 export type IFormControlValue = INotNilFormControlValue | null | undefined
 
 export type IValueToFormControl<V> =
