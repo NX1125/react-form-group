@@ -1,6 +1,6 @@
 {
   "name": "react-form-group",
-  "version": "2022.04.28.22.11.04",
+  "version": "2022.07.01.19.59.19",
   "description": "Lib for form state management",
   "main": "index.ts",
   "license": "MIT",
@@ -13,15 +13,19 @@
   "dependencies": {
     "axios": "~0.27.2",
     "lodash": "~4.17.21",
-    "react": "~17.0.2",
+    "react": "~18.2.0",
+    "react-dom": "~18.2.0",
     "immutable": "4.0.0"
   },
   "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@types/react": "~18.0.9",
+    "@types/react": "~18.0.14",
     "@types/lodash": "~4.14.182",
     "@types/jest": "~27.5.1",
+    "@testing-library/react": "~13.2.0",
     "jest": "~28.1.0",
     "ts-jest": "~28.0.2",
     "typescript": "~4.6.4"

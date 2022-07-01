@@ -69,6 +69,8 @@ export interface IFormGroupConfig<V, E extends object> {
   validate?: IFormGroupValidator<V, E>
   validateAsync?: IFormGroupValidatorAsync<V, E>
   isValid?: IsFormGroupValidFunc<V, E>
+
+  mapValidatedControls?: (controls: RecursiveFormControls<V>) => RecursiveFormControls<V>
 }
 
 export interface IFormGroupValidator<V, E extends object> {
@@ -86,6 +88,7 @@ export class FormGroup<V extends {
   public readonly validator?: IFormGroupValidator<V, E>
   public readonly validatorAsync?: IFormGroupValidatorAsync<V, E>
   private readonly _isValidFunc?: IsFormGroupValidFunc<V, E>
+  private readonly mapValidatedControls?: IFormGroupConfig<V, E>['mapValidatedControls']
 
   constructor(
     public readonly controls: RecursiveFormControls<V>,
@@ -97,6 +100,7 @@ export class FormGroup<V extends {
     this.validator = config?.validate
     this.validatorAsync = config?.validateAsync
     this._isValidFunc = config?.isValid
+    this.mapValidatedControls = config?.mapValidatedControls
 
     this._needsValidation = needsValidation ?? (!isNil(this.validator) || !isNil(this.validatorAsync)) ?? false
   }
@@ -106,6 +110,7 @@ export class FormGroup<V extends {
       validate: this.validator,
       validateAsync: this.validatorAsync,
       isValid: this._isValidFunc,
+      mapValidatedControls: this.mapValidatedControls,
     }
   }
 
@@ -126,14 +131,16 @@ export class FormGroup<V extends {
       newState[name] = this.getControl(name).validate()
     }
 
-    if (skipValidationIfChildrenAreInvalid && names.some(name => !newState[name].isValid)) {
+    const mapped = this.mapValidatedControls?.(newState) ?? newState
+
+    if (skipValidationIfChildrenAreInvalid && names.some(name => !mapped[name].isValid)) {
       // This group is not validated until all children have been validated
-      return new FormGroup(newState, this.config, false)
+      return new FormGroup(mapped, this.config, false)
     }
 
     const errors = this.validator?.(this)
 
-    return new FormGroup<V, E>(newState, this.config, false, errors || undefined)
+    return new FormGroup<V, E>(mapped, this.config, false, errors || undefined)
   }
 
   querySelectorAll(
@@ -232,9 +239,13 @@ export class FormGroup<V extends {
     return !this.isAnyControl(control => !test(control))
   }
 
+  get defaultIsValid() {
+    return this.areAllControls(control => control.isValid)
+  }
+
   get isValid(): boolean {
     return !this._needsValidation && isNil(this.errors) && (
-      isNil(this._isValidFunc) ? this.areAllControls(control => control.isValid) : this._isValidFunc!(this)
+      isNil(this._isValidFunc) ? this.defaultIsValid : this._isValidFunc!(this)
     )
   }
 

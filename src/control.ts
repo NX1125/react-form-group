@@ -27,9 +27,9 @@ function getChangeValue(target: SupportedInputElement, radioValue: any): IFormCo
         return target.valueAsNumber
       case 'radio':
         return radioValue
-      // FIXME: when valueAsDate can be null?
       case 'date':
-        return target.valueAsDate!
+        // Date is nil when is not valid
+        return target.valueAsDate
       case 'checkbox':
         return target.checked
       case 'file':
@@ -43,12 +43,8 @@ function getChangeValue(target: SupportedInputElement, radioValue: any): IFormCo
   }
 }
 
-function padZero(value: number, padding = '00') {
-  return `${padding}${value}`.slice(-padding.length)
-}
-
 export function localDateAsValue(date: Date) {
-  return `${padZero(date.getFullYear(), '0000')}-${padZero(date.getMonth() + 1)}-${padZero(date.getDate())}`
+  return date.toISOString().substring(0, 10)
 }
 
 // TODO: Add opaque object form control
@@ -226,6 +222,7 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     return new FormControlProps<V, E>(
       this._getInputProps(onChange, uncontrolled, name),
       this,
+      onChange,
     )
   }
 
@@ -233,7 +230,6 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     onChange: (control: FormControl<V, E>, reason?: FormChangeReason) => void,
     uncontrolled?: boolean,
     name?: string,
-    ref?: React.RefCallback<SupportedInputElement>,
   ): IFormControlProps<V> {
     const onChangeValue = (value: any, reason: FormChangeReason) => {
       onChange(new FormControl<V, E>(
@@ -276,7 +272,7 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
           return
         }
 
-        if (Array.isArray(event) || event instanceof Date || isNil(event)) {
+        if (Array.isArray(event) || event instanceof Date || isNil(event) || event instanceof FileList) {
           onChangeValue(event, FormChangeReason.change)
           return
         }
@@ -291,7 +287,12 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
         if (uncontrolled)
           return
 
-        const newValue = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.value)
+        const changeEvent = event as React.ChangeEvent<SupportedInputElement>
+        // if (changeEvent.target.type === 'date') {
+        //   return // leave to blur
+        // }
+
+        const newValue = getChangeValue(changeEvent.target, this.value)
         onChangeValue(newValue, FormChangeReason.change)
       },
       onBlur: event => {
@@ -446,34 +447,50 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
   constructor(
     public readonly props: IFormControlProps<V>,
     public readonly control: FormControl<V, E>,
+    public readonly _onChange: (control: FormControl<V, E>, reason?: FormChangeReason) => void,
   ) {
   }
 
   withTransform<T = any>(
     parseValue: (v: T) => V,
     transformValue: (v: V) => T,
+    reasons: {
+      change?: boolean
+      focus?: boolean
+      blur?: boolean
+    } = {
+      change: true,
+      focus: true,
+      blur: true,
+    },
   ) {
     return new FormControlProps(
-      this._withTransform<T>(parseValue, transformValue),
+      this._withTransform<T>(parseValue, transformValue, reasons),
       this.control,
+      this._onChange,
     )
   }
 
   private _withTransform<T = any>(
     parseValue: (v: T) => V,
     transformValue: (v: V) => T,
+    reasons: {
+      change?: boolean
+      focus?: boolean
+      blur?: boolean
+    },
+    attrs?: any,
   ): IFormControlProps {
+    const { control } = this
     return {
       ...this.props,
-      value: transformValue(this.control.value),
+      ...attrs,
+      value: transformValue(control.value),
       onChange: (event: React.ChangeEvent<SupportedInputElement> | V) => {
-        if (isNil(event)) {
-          this.props.onChange('')
-          return
-        }
-
         let value: any
-        if (Array.isArray(event) || event instanceof Date) {
+        if (isNil(event)) {
+          value = ''
+        } else if (Array.isArray(event) || event instanceof Date) {
           value = event
         } else {
           switch (typeof event) {
@@ -483,13 +500,85 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
               value = event
               break
             default:
-              if (typeof event === 'object' && 'target' in (event as object))
+              if (typeof event === 'object' && 'target' in (event as object)) {
+                if (!reasons.change)
+                  return
+
                 value = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.props.value)
+              } else {
+                value = event
+              }
+
               break
           }
         }
 
-        this.props.onChange(parseValue(value))
+        this._onChange(new FormControl<V, E>(
+          parseValue(value),
+          {
+            validators: control.validators,
+            needsValidation: true,
+            dirty: true,
+            touched: true,
+          },
+        ), FormChangeReason.change)
+      },
+      onBlur: event => {
+        const target = event.target
+        if (
+          target instanceof HTMLInputElement &&
+          ((target.type === 'radio' || target.type === 'checkbox') &&
+            !target.checked)
+        ) {
+          return
+        }
+
+        if (!(
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement
+        ))
+          return
+
+        if (!reasons.blur) {
+          this._onChange(new FormControl<V, E>(
+            control.value,
+            {
+              ...this.control,
+              touched: true,
+            },
+          ), FormChangeReason.focus)
+          return
+        }
+
+        const newValue: any = parseValue(getChangeValue(target, this.props.value) as any)
+
+        this._onChange(new FormControl<V, E>(
+          reasons.blur ? newValue : control.value,
+          {
+            ...this.control,
+            dirty: newValue !== control.value || control.dirty,
+            touched: true,
+          },
+        ), FormChangeReason.focus)
+      },
+      onFocus: event => {
+        if (!reasons.focus) {
+          return
+        }
+
+        const target = event.target ?? event.currentTarget
+        if (!(
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement
+        ))
+          return
+
+        // autofill
+        const newValue: any = parseValue(getChangeValue(target, control.value) as any)
+        if (newValue !== control.value)
+          this._onChange(new FormControl<V, E>(newValue, this.control), FormChangeReason.blur)
       },
     }
   }
@@ -506,7 +595,7 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
   }
 
   toRadio<V extends IFormControlValue>(value: V) {
-    return new FormControlProps(this._toRadio(value), this.control)
+    return new FormControlProps(this._toRadio(value), this.control, this._onChange)
   }
 
   private _toRadio<V extends IFormControlValue>(value: V): IRadioFormControlProps<V> {

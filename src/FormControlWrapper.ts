@@ -27,7 +27,7 @@ function FormControlWrapper<V extends IFormControlValue, E>(props: {
       onBlur(event: React.FocusEvent<HTMLElement>) {
         props.inputProps.props.onChange(event)
       },
-    }, control),
+    }, control, inputProps._onChange),
   })
 }
 

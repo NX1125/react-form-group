@@ -12,7 +12,7 @@ export function isWhitespace(value: string): boolean {
 }
 
 export function isValidEmail(value?: string | null) {
-  return /^[a-zA-Z.\-_\d]+@[a-zA-Z\d]+(\.[a-zA-Z\d]+)+$/.test(value ?? '')
+  return /^[a-zA-Z.\-_\d]+@[a-zA-Z\d\-]+(\.[a-zA-Z\d]+)+$/.test(value ?? '')
 }
 
 export function isValidPhoneNumber(value?: string | null) {

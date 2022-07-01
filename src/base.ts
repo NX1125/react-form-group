@@ -27,7 +27,7 @@ interface IFormControlPropsBase<V extends IFormControlValue = any> extends INati
   name?: string
   checked?: boolean
 
-  onChange(event: React.ChangeEvent<SupportedInputElement> | V): void
+  onChange(event: React.ChangeEvent<SupportedInputElement> | V | FormControl<V>): void
 
   onFocus: React.FocusEventHandler<HTMLElement>
   onBlur: React.FocusEventHandler<HTMLElement>
