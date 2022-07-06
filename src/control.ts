@@ -441,6 +441,10 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
       },
     )
   }
+
+  get errorsTree() {
+    return this.errors
+  }
 }
 
 export class FormControlProps<V extends IFormControlValue = any, E extends IDefaultErrors = IExtendedDefaultErrors> {

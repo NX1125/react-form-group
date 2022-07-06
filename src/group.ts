@@ -355,6 +355,20 @@ export class FormGroup<V extends {
 
     return children as IFormGroupRef<V>
   }
+
+  // TODO: Recursive error
+  get errorsTree(): any {
+    const tree: any = {}
+
+    for (const name of this.controlNames) {
+      tree[name] = this.getControl(name).errorsTree
+    }
+
+    return {
+      ...tree,
+      ...this.errors,
+    }
+  }
 }
 
 /**
