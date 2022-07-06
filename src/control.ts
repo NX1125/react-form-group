@@ -501,10 +501,16 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
               break
             default:
               if (typeof event === 'object' && 'target' in (event as object)) {
+                const changeEvent = event as React.ChangeEvent<SupportedInputElement>
+                if (!(changeEvent.target instanceof HTMLElement)) {
+                  value = event
+                  break
+                }
+
                 if (!reasons.change)
                   return
 
-                value = getChangeValue((event as React.ChangeEvent<SupportedInputElement>).target, this.props.value)
+                value = getChangeValue(changeEvent.target, this.props.value)
               } else {
                 value = event
               }
