@@ -370,12 +370,3 @@ export class FormGroup<V extends {
     }
   }
 }
-
-/**
- * @deprecated
- */
-export function useGroupRefTree<V>(group: FormGroup<V>) {
-  const [tree] = useState(() => group.createRefTree())
-
-  return useRef<IFormGroupRef<V>>(tree)
-}
