@@ -14,7 +14,7 @@ interface INestedGroupValue {
     c: string
   }
   d: number
-  e: ArtworkType
+  e?: ArtworkType
   f: {
     e: ArtworkType
   }
@@ -25,9 +25,9 @@ describe('definitely typed', () => {
     const group = new FormGroup<INestedGroupValue>({
       a: new FormGroup({
         b: new FormGroup({
-          w: new FormControl(''),
+          w: new FormControl<string, any>(''),
         }),
-        c: new FormControl(''),
+        c: new FormControl<string>(''),
       }),
       d: new FormControl(0),
       e: new FormControl(ArtworkType.Artwork),

@@ -1,4 +1,3 @@
-import { useRef, useState } from 'react'
 import isNil from 'lodash/isNil'
 
 import { FormControl, FormControlProps } from './control'
@@ -18,10 +17,12 @@ type RecursivePartial<T> = {
       : T[P]
 }
 
-type RecursiveFormControls<V, O = never> = {
-  [P in keyof V]-?: V[P] extends IFormControlValue
-    ? FormControl<V[P]>
-    : FormGroup<V[P]>
+type RecursiveFormControls<V, E extends object = any> = {
+  [k in keyof V]-?: V[k] extends IFormControlValue
+    ? FormControl<V[k]>
+    : V[k] extends object
+      ? FormGroup<V[k]>
+      : never
 }
 
 export type IFormGroupRef<V> = {
@@ -38,16 +39,6 @@ export type IFormGroupElements<V> = {
     : V[P] extends FormControl<infer U>
       ? NodeListOf<SupportedInputElement> | SupportedInputElement[] | SupportedInputElement
       : IFormGroupRef<V[P]>
-}
-
-export type IFormGroupValue<V extends {
-  [k in keyof V]: IFormControlValue | object
-}> = {
-  [P in keyof V]: V[P] extends IFormControlValue
-    ? V[P]
-    : V[P] extends FormControl<infer U>
-      ? U
-      : V[P]
 }
 
 export type IFormGroupProps<V, E extends object = any> = {
@@ -81,9 +72,7 @@ export interface IFormGroupValidatorAsync<V, E extends object> {
   (state: FormGroup<V, E>): Promise<Partial<E> | false | undefined>
 }
 
-export class FormGroup<V extends {
-  readonly [k in keyof V]: V[k]
-}, E extends object = any> implements IAbstractFormControl {
+export class FormGroup<V, E extends object = any> implements IAbstractFormControl {
   private readonly _needsValidation: boolean
   public readonly validator?: IFormGroupValidator<V, E>
   public readonly validatorAsync?: IFormGroupValidatorAsync<V, E>
@@ -114,7 +103,7 @@ export class FormGroup<V extends {
     }
   }
 
-  private getControl(name: keyof V | keyof RecursiveFormControls<V>): FormControl | FormGroup<any> {
+  private getControl(name: keyof V | keyof RecursiveFormControls<V> | string): FormControl | FormGroup<any> {
     return (this.controls as any)[name]
   }
 
@@ -262,7 +251,7 @@ export class FormGroup<V extends {
   }
 
   get controlNames() {
-    return Object.getOwnPropertyNames(this.controls) as (keyof V)[]
+    return Object.getOwnPropertyNames(this.controls)
   }
 
   patch(controls: Partial<RecursiveFormControls<V>>) {
@@ -277,12 +266,12 @@ export class FormGroup<V extends {
     const controls: any = {}
 
     for (const name of names) {
-      if (isNil(value[name]))
+      if (isNil(value[name as keyof V]))
         continue
 
       const control = this.getControl(name)
 
-      controls[name] = control.patchValue(value[name] as any)
+      controls[name] = control.patchValue(value[name as keyof V] as any)
     }
 
     return this.patch(controls)

@@ -15,7 +15,17 @@ export interface INativeValidationAttributes {
 
 export type INotNilFormControlValue = FileList | File | Date | string | number | boolean
 export type IFormControlValue = INotNilFormControlValue | null | undefined
+export type IFormGroupValue<V> = {
+  [k in keyof V]: V[k] extends IFormControlValue
+    ? V[k]
+    : V[k] extends IFormGroupValue<V[k]>
+      ? V[k]
+      : never
+}
 
+/**
+ * @deprecated
+ */
 export type IValueToFormControl<V> =
   V extends IFormControlValue
     ? FormControl<V>
