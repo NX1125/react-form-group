@@ -1,4 +1,4 @@
-import { FormControl, FormGroup } from '../src'
+import { FormControl, FormGroup } from '../index'
 
 enum ArtworkType {
   Artwork = 'Artwork',

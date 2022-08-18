@@ -1,4 +1,4 @@
-import { FormControl } from '../src'
+import { FormControl } from '../index'
 
 describe('date control', () => {
   it('should update date on change', () => {
