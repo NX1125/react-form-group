@@ -307,7 +307,7 @@ export class FormGroup<V, E extends object = any> implements IAbstractFormContro
     return value
   }
 
-  setTouched(touched = true) {
+  setTouched(touched = true): FormGroup<V> {
     return this.map(c => c.setTouched(touched))
   }
 
