@@ -604,11 +604,11 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
     }
   }
 
-  toRadio<V extends IFormControlValue>(value: V) {
-    return new FormControlProps(this._toRadio(value), this.control, this._onChange)
+  toRadio<R extends IFormControlValue>(value: R): FormControlProps<R> {
+    return new FormControlProps(this._toRadio(value), this.control, this._onChange) as any
   }
 
-  private _toRadio<V extends IFormControlValue>(value: V): IRadioFormControlProps<V> {
+  private _toRadio<R extends IFormControlValue>(value: R): IRadioFormControlProps<R> {
     return {
       ...this.props,
       value,
