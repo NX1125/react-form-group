@@ -136,7 +136,7 @@ export class DefaultValidators {
 
       const regex = new RegExp(pattern)
 
-      if (regex.test(valueAsString))
+      if (valueAsString.match(regex) !== null)
         return undefined
 
       return errors
