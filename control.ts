@@ -385,7 +385,7 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
   patchFromElement(
     elements: NodeListOf<SupportedInputElement> | SupportedInputElement[],
     __name = '',
-  ) {
+  ): FormControl<V> {
     switch (elements.length) {
       case 0:
         return this
@@ -413,7 +413,7 @@ export class FormControl<V extends IFormControlValue = any, E extends IDefaultEr
     root: HTMLElement,
     name: string,
   ): NodeListOf<SupportedInputElement> {
-    const selector = ['input', 'select', 'textarea'].map(elem => `${elem}[name="${name}"]`).join(', ')
+    const selector = [ 'input', 'select', 'textarea' ].map(elem => `${elem}[name="${name}"]`).join(', ')
     return root.querySelectorAll<SupportedInputElement>(selector)
   }
 
@@ -455,7 +455,7 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
   ) {
   }
 
-  withTransform<T = any>(
+  withTransform<T extends IFormControlValue = any>(
     parseValue: (v: T) => V,
     transformValue: (v: V) => T,
     reasons: {
@@ -467,11 +467,11 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
       focus: true,
       blur: true,
     },
-  ) {
-    return new FormControlProps(
+  ): FormControlProps<T>{
+    return new FormControlProps<T>(
       this._withTransform<T>(parseValue, transformValue, reasons),
-      this.control,
-      this._onChange,
+      this.control as any,
+      this._onChange as any,
     )
   }
 
@@ -613,7 +613,7 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
       ...this.props,
       value,
       checked: this.props.value === value,
-      type: "radio",
+      type: 'radio',
       onChange: () => {
         this.props.onChange(value)
       },
