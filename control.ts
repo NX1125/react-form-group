@@ -17,8 +17,9 @@ import {
   IRadioFormControlProps,
   SupportedInputElement,
 } from './base'
+import { localDateAsValue } from '@/react-form-group/localDateAsValue'
 
-function getChangeValue(target: SupportedInputElement, radioValue: any): IFormControlValue {
+export function getChangeValue(target: SupportedInputElement, radioValue: any): IFormControlValue {
   if (target instanceof HTMLInputElement) {
     switch (target.type as HTMLInputTypeAttribute) {
       case 'number':
@@ -41,10 +42,6 @@ function getChangeValue(target: SupportedInputElement, radioValue: any): IFormCo
     // textarea
     return target.value
   }
-}
-
-export function localDateAsValue(date: Date) {
-  return date.toISOString().substring(0, 10)
 }
 
 // TODO: Add opaque object form control
@@ -467,7 +464,7 @@ export class FormControlProps<V extends IFormControlValue = any, E extends IDefa
       focus: true,
       blur: true,
     },
-  ): FormControlProps<T>{
+  ): FormControlProps<T> {
     return new FormControlProps<T>(
       this._withTransform<T>(parseValue, transformValue, reasons),
       this.control as any,

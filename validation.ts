@@ -91,7 +91,7 @@ export class DefaultValidators {
     })
   }
 
-  static lengthRange(minLength?: number, maxLength?: number): IFormControlValidator {
+  static lengthRange(minLength?: number, maxLength?: number) {
     return new FormControlAttributedValidator<IDefaultErrors>({
       minLength,
       maxLength,
