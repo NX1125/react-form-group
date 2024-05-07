@@ -171,23 +171,40 @@ function useValueValidation(value: IFormControlValue, checks: IValidationOptions
 
 export function useValidation<V extends IUseFormValue<V>, C extends {
   [key in keyof V]?: IValidationOptions
-}>(form: IUseForm<V>, checks: C): {
-  [key in keyof C]: IValidationResult
-} {
+}>(form: IUseForm<V>, checks: C): IUseValidation<V, C> {
   const validation = {} as {
     [key in keyof C]: IValidationResult
   }
+  let isValid = true
 
   for (const key of form.fieldNames) {
     const options = checks[key as keyof V]
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    validation[key as keyof V] = useValueValidation(form.watch(key as keyof V), options || { none: true })!
+    const result = useValueValidation(form.watch(key as keyof V), options || { none: true })!
+    validation[key as keyof V] = result
+    isValid = isValid && (result === undefined || result.success)
   }
 
-  return validation
+  return {
+    value: validation,
+    isValid,
+  }
 }
 
 export type IUseValidationResult<V extends IUseFormValue<V>, C extends {
   [key in keyof V]?: IValidationOptions
+} = {
+  [key in keyof V]?: IValidationOptions
 }> = ReturnType<typeof useValidation<V, C>>
+
+export interface IUseValidation<V extends IUseFormValue<V>, C extends {
+  [key in keyof V]?: IValidationOptions
+} = {
+  [key in keyof V]?: IValidationOptions
+}> {
+  value: {
+    [key in keyof C]: IValidationResult
+  }
+  isValid: boolean
+}
