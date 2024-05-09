@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { IFormControlValue } from '@/react-form-group/base'
 
 import { localDateAsValue } from '@/react-form-group/localDateAsValue'
@@ -42,6 +42,10 @@ export interface IUseForm<V extends IUseFormValue<V>> {
   getInputProps: GetInputProps<V>
 }
 
+interface SetValue<V> {
+  <K extends keyof V>(key: K, value: V[K]): void
+}
+
 export function useForm<V extends IUseFormValue<V>>(options: {
   initialValue: V
 }): IUseForm<V> {
@@ -73,12 +77,12 @@ export function useForm<V extends IUseFormValue<V>>(options: {
     return valueMap[key]
   }
 
-  function setValue<K extends keyof V>(key: K, value: V[K]) {
-    setValueMap({
-      ...valueMap,
+  const setValue = useCallback<SetValue<V>>((key, value) => {
+    setValueMap(vs => ({
+      ...vs,
       [key]: value,
-    })
-  }
+    }))
+  }, [])
 
   function getInputProps<K extends keyof V>(
     key: K,
@@ -107,11 +111,7 @@ export function useForm<V extends IUseFormValue<V>>(options: {
       onChange: e => {
         const value = getChangeValue(e.target, radioValue)
 
-        setValueMap({
-          ...valueMap,
-          [key]: value,
-        })
-
+        setValue(key, value as V[K])
         setDirty(key)
       },
       onBlur: () => {
