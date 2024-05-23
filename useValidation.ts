@@ -169,9 +169,7 @@ function useValueValidation(value: IFormControlValue, checks: IValidationOptions
   ])
 }
 
-export function useValidation<V extends IUseFormValue<V>, C extends {
-  [key in keyof V]?: IValidationOptions
-}>(form: IUseForm<V>, checks: C): IUseValidation<V, C> {
+export function useValidation<V extends IUseFormValue<V>, C extends IUseValidationOptionsGroup<V>>(form: IUseForm<V>, checks: C): IUseValidation<V, C> {
   const validation = {} as {
     [key in keyof C]: IValidationResult
   }
@@ -189,22 +187,20 @@ export function useValidation<V extends IUseFormValue<V>, C extends {
   return {
     value: validation,
     isValid,
+    checks,
   }
 }
 
-export type IUseValidationResult<V extends IUseFormValue<V>, C extends {
+export type IUseValidationOptionsGroup<V> = {
   [key in keyof V]?: IValidationOptions
-} = {
-  [key in keyof V]?: IValidationOptions
-}> = ReturnType<typeof useValidation<V, C>>
+}
 
-export interface IUseValidation<V extends IUseFormValue<V>, C extends {
-  [key in keyof V]?: IValidationOptions
-} = {
-  [key in keyof V]?: IValidationOptions
-}> {
+export type IUseValidationResult<V extends IUseFormValue<V>, C extends IUseValidationOptionsGroup<V> = IUseValidationOptionsGroup<V>> = ReturnType<typeof useValidation<V, C>>
+
+export interface IUseValidation<V extends IUseFormValue<V>, C extends IUseValidationOptionsGroup<V> = IUseValidationOptionsGroup<V>> {
   value: {
     [key in keyof C]: IValidationResult
   }
   isValid: boolean
+  checks: C
 }
