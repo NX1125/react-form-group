@@ -3,7 +3,7 @@ import { IFormControlValue } from '@/react-form-group/base'
 
 import { localDateAsValue } from '@/react-form-group/localDateAsValue'
 import { getChangeValue } from '@/react-form-group/control'
-import { IUseValidation, IValidationResult } from '@/react-form-group/useValidation'
+import { IUseValidation, IValidationOptions, IValidationResult } from '@/react-form-group/useValidation'
 
 export interface IUseFormControl<V extends IFormControlValue> {
   value: V
@@ -21,15 +21,22 @@ export type IUseFormValue<V> = {
   [K in keyof V]: V[K]
 }
 
-export interface GetInputPropsReturn {
-  attrs: React.InputHTMLAttributes<HTMLInputElement>
-  validation?: IValidationResult
+export interface GetInputPropsReturn<V extends IFormControlValue = IFormControlValue> {
+  attrs: React.InputHTMLAttributes<HTMLInputElement> | React.TextareaHTMLAttributes<HTMLTextAreaElement> | any
+  validation?: {
+    result: IValidationResult
+    options: IValidationOptions
+  } | undefined
+
+  value: V
+  touched: boolean
+  name: string
 }
 
 export type GetInputProps<V extends IUseFormValue<V>, C extends IUseValidation<V> = IUseValidation<V>> = <K extends keyof V>(
   key: K,
-  radioValue?: string | string[] | number | typeof NotRadio,
   validation?: C,
+  radioValue?: string | string[] | number | typeof NotRadio,
 ) => GetInputPropsReturn
 
 export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidation<V> = IUseValidation<V>> {
@@ -98,13 +105,17 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
 
   function getInputProps<K extends keyof TValue, TValidation extends IUseValidation<TValue>>(
     key: K,
-    radioValue: string | string[] | number | typeof NotRadio = NotRadio,
     validation?: TValidation,
+    radioValue: string | string[] | number | typeof NotRadio = NotRadio,
   ): GetInputPropsReturn {
     const v = valueMap[key] as unknown as IFormControlValue
 
     return {
-      validation: validation?.value[key],
+      name: key as string,
+      validation: validation?.checks[key] ? {
+        result: validation.value[key]!,
+        options: validation.checks[key]!,
+      } : undefined,
       attrs: {
         name: key as string,
         value: radioValue === NotRadio
@@ -123,7 +134,7 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
                 : v as string)
           : radioValue,
         checked: radioValue !== NotRadio && v === radioValue || v === true,
-        onChange: e => {
+        onChange: (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
           const value = getChangeValue(e.target, radioValue)
 
           setValue(key, value as TValue[K])
@@ -133,6 +144,8 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
           touch(key)
         },
       },
+      value: valueMap[key],
+      touched: touchedMap[key],
     }
   }
 
