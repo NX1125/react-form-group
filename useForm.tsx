@@ -3,7 +3,13 @@ import { IFormControlValue } from '@/react-form-group/base'
 
 import { localDateAsValue } from '@/react-form-group/localDateAsValue'
 import { getChangeValue } from '@/react-form-group/control'
-import { IUseValidation, IValidationOptions, IValidationResult } from '@/react-form-group/useValidation'
+import {
+  IUseValidation,
+  IUseValidationOptionsGroup,
+  IValidationOptions,
+  IValidationResult,
+  useValidation,
+} from '@/react-form-group/useValidation'
 
 export interface IUseFormControl<V extends IFormControlValue> {
   value: V
@@ -54,6 +60,8 @@ export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidation<V
 
   register: GetInputProps<V, C>
   getInputProps: GetInputProps<V, C>
+
+  useValidation<C extends IUseValidationOptionsGroup<V>>(checks: C): IUseValidation<V, C>
 }
 
 interface SetValue<V> {
@@ -162,6 +170,10 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     getInputProps,
     watch,
     register: getInputProps,
+
+    useValidation<C extends IUseValidationOptionsGroup<TValue>>(checks: C): IUseValidation<TValue, C> {
+      return useValidation(this, checks)
+    },
   }
 }
 
