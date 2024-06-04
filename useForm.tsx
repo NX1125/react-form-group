@@ -53,6 +53,9 @@ export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidation<V
   dirty: { [K in keyof V]: boolean }
   touched: { [K in keyof V]: boolean }
 
+  anyDirty: boolean
+  anyTouched: boolean
+
   touch: <K extends keyof V>(key: K, value?: boolean) => void
   setDirty: <K extends keyof V>(key: K, value?: boolean) => void
 
@@ -62,6 +65,8 @@ export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidation<V
   getInputProps: GetInputProps<V, C>
 
   useValidation<C extends IUseValidationOptionsGroup<V>>(checks: C): IUseValidation<V, C>
+
+  clearDirty(): void
 }
 
 interface SetValue<V> {
@@ -164,6 +169,10 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     setValue,
     dirty: dirtyMap as { [K in keyof TValue]: boolean },
     touched: touchedMap as { [K in keyof TValue]: boolean },
+
+    anyDirty: Object.values(dirtyMap).some(x => x),
+    anyTouched: Object.values(touchedMap).some(x => x),
+
     touch,
     setDirty,
 
@@ -173,6 +182,10 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
 
     useValidation<C extends IUseValidationOptionsGroup<TValue>>(checks: C): IUseValidation<TValue, C> {
       return useValidation(this, checks)
+    },
+
+    clearDirty() {
+      setDirtyMap({})
     },
   }
 }
