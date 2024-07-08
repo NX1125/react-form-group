@@ -3,13 +3,7 @@ import { IFormControlValue } from '@/react-form-group/base'
 
 import { localDateAsValue } from '@/react-form-group/localDateAsValue'
 import { getChangeValue } from '@/react-form-group/control'
-import {
-  IUseValidation,
-  IUseValidationOptionsGroup,
-  IValidationOptions,
-  IValidationResult,
-  useValidation,
-} from '@/react-form-group/useValidation'
+import { IUseValidation, IUseValidationOptionsGroup, IValidationOptions, IValidationResult, useValidation } from '@/react-form-group/useValidation'
 
 export interface IUseFormControl<V extends IFormControlValue> {
   value: V
@@ -45,7 +39,7 @@ export type GetInputProps<V extends IUseFormValue<V>, C extends IUseValidation<V
   radioValue?: string | string[] | number | typeof NotRadio,
 ) => GetInputPropsReturn
 
-export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidation<V> = IUseValidation<V>> {
+export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidationOptionsGroup<V> = IUseValidationOptionsGroup<V>> {
   fieldNames: (keyof V)[]
 
   value: V
@@ -61,8 +55,10 @@ export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidation<V
 
   watch: <K extends keyof V>(key: K) => V[K]
 
-  register: GetInputProps<V, C>
-  getInputProps: GetInputProps<V, C>
+  register: GetInputProps<V, IUseValidation<V, C>>
+  getInputProps: GetInputProps<V, IUseValidation<V, C>>
+
+  validation: IUseValidation<V, C>
 
   useValidation<C extends IUseValidationOptionsGroup<V>>(checks: C): IUseValidation<V, C>
 
@@ -73,8 +69,9 @@ interface SetValue<V> {
   <K extends keyof V>(key: K, value: V[K]): void
 }
 
-export interface IUseFormOptions<V> {
+export interface IUseFormOptions<V, C extends IUseValidationOptionsGroup<V> = IUseValidationOptionsGroup<V>> {
   initialValue: V
+  validation?: C
 }
 
 export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormOptions<TValue>): IUseForm<TValue> {
@@ -121,6 +118,7 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     validation?: TValidation,
     radioValue: string | string[] | number | typeof NotRadio = NotRadio,
   ): GetInputPropsReturn {
+    validation = validation || form.validation as TValidation
     const v = valueMap[key] as unknown as IFormControlValue
 
     return {
@@ -162,7 +160,7 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     }
   }
 
-  return {
+  const form: IUseForm<TValue> = {
     fieldNames: fieldNames as (keyof TValue)[],
 
     value: valueMap,
@@ -187,7 +185,13 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     clearDirty() {
       setDirtyMap({})
     },
+
+    validation: undefined!,
   }
+
+  form.validation = useValidation(form, options.validation || {} as IUseValidationOptionsGroup<TValue>)
+
+  return form
 }
 
 export const UseFormContext = React.createContext<IUseForm<any>>(undefined!)
