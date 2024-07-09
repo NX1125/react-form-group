@@ -37,6 +37,7 @@ export type GetInputProps<V extends IUseFormValue<V>, C extends IUseValidation<V
   key: K,
   validation?: C,
   radioValue?: string | string[] | number | typeof NotRadio,
+  format?: (value: V[K]) => string,
 ) => GetInputPropsReturn
 
 export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidationOptionsGroup<V> = IUseValidationOptionsGroup<V>> {
@@ -117,6 +118,7 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     key: K,
     validation?: TValidation,
     radioValue: string | string[] | number | typeof NotRadio = NotRadio,
+    format?: (value: TValue[K]) => string,
   ): GetInputPropsReturn {
     validation = validation || form.validation as TValidation
     const v = valueMap[key] as unknown as IFormControlValue
@@ -130,19 +132,21 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
       attrs: {
         name: key as string,
         value: radioValue === NotRadio
-          ? (v instanceof Date
-            ? localDateAsValue(v)
-            : typeof v === 'boolean'
-              ? v ? 'true' : 'false'
-              : v === undefined || v === null
-              || typeof v === 'number' && isNaN(v)
-              || typeof v === 'object' && v.constructor.name === 'FileList'
-              || typeof v === 'object' && v.constructor.name === 'File'
-                // Fix warning:
-                //  Received NaN for the `value` attribute. If this is expected,
-                //  cast the value to a string.
-                ? ''
-                : v as string)
+          ? typeof format === 'function'
+            ? format(v as TValue[K])
+            : (v instanceof Date
+              ? localDateAsValue(v)
+              : typeof v === 'boolean'
+                ? v ? 'true' : 'false'
+                : v === undefined || v === null
+                || typeof v === 'number' && isNaN(v)
+                || typeof v === 'object' && v.constructor.name === 'FileList'
+                || typeof v === 'object' && v.constructor.name === 'File'
+                  // Fix warning:
+                  //  Received NaN for the `value` attribute. If this is expected,
+                  //  cast the value to a string.
+                  ? ''
+                  : v as string)
           : radioValue,
         checked: radioValue !== NotRadio && v === radioValue || v === true,
         onChange: (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
