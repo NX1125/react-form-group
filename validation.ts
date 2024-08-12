@@ -16,7 +16,7 @@ export function isValidEmail(value?: string | null) {
 }
 
 export function isValidPhoneNumber(value?: string | null) {
-  return /^\d{10,11}|\d?\(\d{3}\)\d{3}-\d{4}|(\d-)?\d{3}-\d{3}-\d{4}$/.test(value ?? '')
+  return /^\+?\d+$/.test(value ?? '')
 }
 
 export type IDefaultErrors = {
