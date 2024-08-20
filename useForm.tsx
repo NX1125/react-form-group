@@ -64,10 +64,16 @@ export interface IUseForm<V extends IUseFormValue<V>, C extends IUseValidationOp
   useValidation<C extends IUseValidationOptionsGroup<V>>(checks: C): IUseValidation<V, C>
 
   clearDirty(): void
+
+  patchValue(value: Partial<V>): void
 }
 
 interface SetValue<V> {
   <K extends keyof V>(key: K, value: V[K]): void
+}
+
+interface PatchValue<V> {
+  (value: Partial<V>): void
 }
 
 export interface IUseFormOptions<V, C extends IUseValidationOptionsGroup<V> = IUseValidationOptionsGroup<V>> {
@@ -111,6 +117,13 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     setValueMap(vs => ({
       ...vs,
       [key]: value,
+    }))
+  }, [])
+
+  const patchValue = useCallback<PatchValue<TValue>>(value => {
+    setValueMap(vs => ({
+      ...vs,
+      ...value,
     }))
   }, [])
 
@@ -191,6 +204,7 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     },
 
     validation: undefined!,
+    patchValue,
   }
 
   form.validation = useValidation(form, options.validation || {} as IUseValidationOptionsGroup<TValue>)
