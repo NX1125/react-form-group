@@ -3,7 +3,13 @@ import { IFormControlValue } from '@/react-form-group/base'
 
 import { localDateAsValue } from '@/react-form-group/localDateAsValue'
 import { getChangeValue } from '@/react-form-group/control'
-import { IUseValidation, IUseValidationOptionsGroup, IValidationOptions, IValidationResult, useValidation } from '@/react-form-group/useValidation'
+import {
+  IUseValidation,
+  IUseValidationOptionsGroup,
+  IValidationOptions,
+  IValidationResult,
+  useValidation,
+} from '@/react-form-group/useValidation'
 
 export interface IUseFormControl<V extends IFormControlValue> {
   value: V
@@ -177,6 +183,10 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
     }
   }
 
+  const clearDirty = useCallback(() => {
+    setDirtyMap({})
+  }, [])
+
   const form: IUseForm<TValue> = {
     fieldNames: fieldNames as (keyof TValue)[],
 
@@ -199,9 +209,7 @@ export function useForm<TValue extends IUseFormValue<TValue>>(options: IUseFormO
       return useValidation(this, checks)
     },
 
-    clearDirty() {
-      setDirtyMap({})
-    },
+    clearDirty,
 
     validation: undefined!,
     patchValue,
