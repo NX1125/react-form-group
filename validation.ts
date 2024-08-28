@@ -123,7 +123,7 @@ export class DefaultValidators {
     }, ignoreIfNilOrWhitespace))
   }
 
-  static patternFunc<E>(
+  static patternFunc<E extends IDefaultErrors>(
     pattern: string | RegExp,
     errors: Partial<E>,
     ignoreIfNilOrWhitespace = true,
