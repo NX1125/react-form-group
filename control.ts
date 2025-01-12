@@ -46,7 +46,7 @@ export function getChangeValue(target: SupportedInputElement, radioValue: any): 
 
 // TODO: Add opaque object form control
 
-export interface IFormControlConfig<V extends IFormControlValue, E extends IDefaultErrors> {
+export interface IFormControlConfig<_ extends IFormControlValue, E extends IDefaultErrors> {
   // TODO: Add data key
   readonly validators?: IFormControlValidator<E>[]
   readonly needsValidation?: boolean

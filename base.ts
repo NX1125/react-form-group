@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import type React from 'react'
 import { FormControl } from './control'
 import { FormGroup } from './group'
